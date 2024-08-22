@@ -11,7 +11,10 @@ def init_logging(app, logger_name: str):
     """Set up logging for production"""
     app.logger.propagate = False
     gunicorn_logger = logging.getLogger(logger_name)
-    app.logger.handlers = gunicorn_logger.handlers
+    if gunicorn_logger.handlers:
+        app.logger.handlers = gunicorn_logger.handlers
+    else:
+        app.logger.addHandler(logging.StreamHandler())
     app.logger.setLevel(gunicorn_logger.level)
     # Make all log formats consistent
     formatter = logging.Formatter(

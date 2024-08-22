@@ -35,6 +35,8 @@ class PersistentBase:
         """
         Creates a Account to the database
         """
+        if not self.name:
+            raise DataValidationError("Account name is required")
         logger.info("Creating %s", self.name)
         self.id = None  # id must be none to generate next primary key
         db.session.add(self)
@@ -44,6 +46,8 @@ class PersistentBase:
         """
         Updates a Account to the database
         """
+        if not self.name:
+            raise DataValidationError("Account name is required")
         logger.info("Updating %s", self.name)
         db.session.commit()
 
