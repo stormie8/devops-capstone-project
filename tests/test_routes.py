@@ -12,6 +12,8 @@ from tests.factories import AccountFactory
 from service.common import status  # HTTP Status Codes
 from service.models import db, Account, init_db
 from service.routes import app
+from service.models import DataValidationError
+from flask import abort
 
 DATABASE_URI = os.getenv(
     "DATABASE_URI", "postgresql://postgres:postgres@localhost:5432/postgres"
@@ -123,4 +125,153 @@ class TestAccountService(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
 
-    # ADD YOUR TEST CASES HERE ...
+    def test_read_an_account(self):
+        """It should Read a single Account"""
+        account = self._create_accounts(1)[0]  # Create a test account
+        resp = self.client.get(f"{BASE_URL}/{account.id}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(data["name"], account.name)
+
+    def test_get_account(self):
+        """It should Read a single Account"""
+        account = self._create_accounts(1)[0]
+        resp = self.client.get(
+            f"{BASE_URL}/{account.id}", content_type="application/json"
+        )
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(data["name"], account.name)
+
+    def test_get_account_not_found(self):
+        """It should not Read an Account that is not found"""
+        resp = self.client.get(f"{BASE_URL}/0")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_read_account_with_invalid_id(self):
+        """It should return 404 for invalid account ID"""
+        resp = self.client.get(f"{BASE_URL}/invalid")
+        self.assertEqual(resp.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_read_account_fields(self):
+        """It should return all fields of an account"""
+        account = self._create_accounts(1)[0]
+        resp = self.client.get(f"{BASE_URL}/{account.id}")
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(data["id"], account.id)
+        self.assertEqual(data["name"], account.name)
+        self.assertEqual(data["email"], account.email)
+        self.assertEqual(data["address"], account.address)
+        self.assertEqual(data["phone_number"], account.phone_number)
+        self.assertEqual(data["date_joined"], str(account.date_joined))
+
+    def test_method_not_allowed(self):
+        """It should handle Method Not Allowed error"""
+        resp = self.client.put(BASE_URL)
+        self.assertEqual(resp.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        data = resp.get_json()
+        self.assertEqual(data["error"], "Method not Allowed")
+
+    def test_internal_server_error(self):
+        """It should handle Internal Server Error"""
+        @app.route("/error")
+        def error():
+            abort(500, "Internal Server Error")
+
+        resp = self.client.get("/error")
+        self.assertEqual(resp.status_code, status.HTTP_500_INTERNAL_SERVER_ERROR)
+        data = resp.get_json()
+        self.assertEqual(data["status"], 500)
+        self.assertEqual(data["error"], "Internal Server Error")
+
+    def test_deserialize_with_key_error(self):
+        """It should not Deserialize an account with a KeyError"""
+        account = Account()
+        self.assertRaises(DataValidationError, account.deserialize, {})
+
+    def test_deserialize_with_type_error(self):
+        """It should not Deserialize an account with a TypeError"""
+        account = Account()
+        self.assertRaises(DataValidationError, account.deserialize, [])
+
+    def test_get_account_list(self):
+        """It should Get a list of Accounts"""
+        self._create_accounts(5)
+        resp = self.client.get(BASE_URL)
+        self.assertEqual(resp.status_code, status.HTTP_200_OK)
+        data = resp.get_json()
+        self.assertEqual(len(data), 5)
+
+    def test_logging_handler(self):
+        """It should have a logging handler"""
+        app.logger.addHandler(logging.NullHandler())
+        self.assertTrue(len(app.logger.handlers) >= 1)
+
+    def test_deserialize_with_no_name(self):
+        """It should not deserialize an Account with no name"""
+        data = {"email": "test@example.com"}
+        account = Account()
+        self.assertRaises(DataValidationError, account.deserialize, data)
+
+    def test_deserialize_with_no_data(self):
+        """It should not deserialize empty data"""
+        account = Account()
+        self.assertRaises(DataValidationError, account.deserialize, None)
+
+    def test_deserialize_with_bad_data(self):
+        """It should not deserialize bad data"""
+        account = Account()
+        self.assertRaises(DataValidationError, account.deserialize, "data")
+
+    def test_app_configuration(self):
+        """It should be properly configured"""
+        self.assertTrue(app.config['TESTING'])
+        self.assertFalse(app.config['DEBUG'])
+        self.assertIsNotNone(app.config['SQLALCHEMY_DATABASE_URI'])
+
+    def test_media_type_not_supported(self):
+        """It should handle unsupported media type"""
+        resp = self.client.post(BASE_URL, json={}, content_type='application/xml')
+        self.assertEqual(resp.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+        data = resp.get_json()
+        self.assertEqual(data["error"], "Unsupported media type")
+
+    def test_account_create_with_no_name(self):
+        """It should not create an Account without a name"""
+        account = Account(email="test@example.com")
+        self.assertRaises(DataValidationError, account.create)
+
+    def test_account_update_with_no_name(self):
+        """It should not update an Account without a name"""
+        account = self._create_accounts(1)[0]
+        account.name = ""
+        self.assertRaises(DataValidationError, account.update)
+
+    def test_account_delete(self):
+        """It should delete an Account"""
+        account = AccountFactory()
+        account.create()
+        account_id = account.id
+        account.delete()
+        self.assertIsNone(Account.find(account_id))
+
+    def test_app_initialization(self):
+        """It should initialize the app"""
+        self.assertIsNotNone(app)
+        self.assertIsNotNone(app.config)
+        self.assertTrue(app.config['TESTING'])
+        self.assertFalse(app.config['DEBUG'])
+
+    def test_unsupported_media_type(self):
+        """It should handle unsupported media type"""
+        resp = self.client.post(BASE_URL, data="bad data", content_type="text/html")
+        self.assertEqual(resp.status_code, status.HTTP_415_UNSUPPORTED_MEDIA_TYPE)
+        data = resp.get_json()
+        self.assertEqual(data["error"], "Unsupported media type")
+
+    def test_deserialize_with_invalid_attributes(self):
+        """It should not deserialize an Account with invalid attributes"""
+        data = {"name": "John", "foo": "bar"}
+        account = Account()
+        self.assertRaises(DataValidationError, account.deserialize, data)
