@@ -8,11 +8,10 @@ Test cases can be run with the following:
 import os
 import logging
 from unittest import TestCase
-from tests.factories import AccountFactory
+from service import app, talisman
+from service.models import db, Account, init_db, DataValidationError
 from service.common import status  # HTTP Status Codes
-from service.models import db, Account, init_db
-from service.routes import app
-from service.models import DataValidationError
+from tests.factories import AccountFactory
 from flask import abort
 
 DATABASE_URI = os.getenv(
@@ -20,6 +19,7 @@ DATABASE_URI = os.getenv(
 )
 
 BASE_URL = "/accounts"
+HTTPS_ENVIRON = {'wsgi.url_scheme': 'https'}
 
 
 ######################################################################
@@ -36,10 +36,7 @@ class TestAccountService(TestCase):
         app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
         app.logger.setLevel(logging.CRITICAL)
         init_db(app)
-
-    @classmethod
-    def tearDownClass(cls):
-        """Runs once before test suite"""
+        talisman.force_https = False
 
     def setUp(self):
         """Runs before each test"""
@@ -302,3 +299,23 @@ class TestAccountService(TestCase):
         resp = self.client.delete(f"{BASE_URL}/{account.id}")
         self.assertEqual(resp.status_code, status.HTTP_204_NO_CONTENT)
         self.assertIsNone(Account.find(account.id))
+
+    def test_security_headers(self):
+        """It should return security headers"""
+        response = self.client.get('/', environ_overrides=HTTPS_ENVIRON)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        headers = {
+            'X-Frame-Options': 'SAMEORIGIN',
+            'X-Content-Type-Options': 'nosniff',
+            'Content-Security-Policy': 'default-src \'self\'; object-src \'none\'',
+            'Referrer-Policy': 'strict-origin-when-cross-origin'
+        }
+        for key, value in headers.items():
+            self.assertEqual(response.headers.get(key), value)
+
+    def test_cors_security(self):
+        """It should return a CORS header"""
+        response = self.client.get('/', environ_overrides=HTTPS_ENVIRON)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Check for the CORS header
+        self.assertEqual(response.headers.get('Access-Control-Allow-Origin'), '*')
