@@ -2,6 +2,7 @@ from flask import Flask
 from flask_talisman import Talisman
 from service import config
 from service.common import log_handlers
+from flask_cors import CORS
 
 # Create Flask application
 app = Flask(__name__)
@@ -9,6 +10,9 @@ app.config.from_object(config)
 
 # Initialize Talisman
 talisman = Talisman(app)
+
+# Initialize CORS
+CORS(app)
 
 # Set up logging for production
 log_handlers.init_logging(app, "gunicorn.error")
