@@ -1,6 +1,5 @@
 """
 Models for Account
-
 All of the models are stored in this module
 """
 import logging
@@ -8,43 +7,39 @@ from datetime import date
 from flask_sqlalchemy import SQLAlchemy
 
 logger = logging.getLogger("flask.app")
-
 # Create the SQLAlchemy object to be initialized later in init_db()
 db = SQLAlchemy()
 
-
 class DataValidationError(Exception):
-    """Used for an data validation errors when deserializing"""
-pass
+    """Used for data validation errors when deserializing"""
+    pass
 
 def init_db(app):
     """Initialize the SQLAlchemy app"""
     Account.init_db(app)
 
-
 ######################################################################
-#  P E R S I S T E N T   B A S E   M O D E L
+# P E R S I S T E N T B A S E M O D E L
 ######################################################################
 class PersistentBase:
     """Base class added persistent methods"""
-
     def __init__(self):
-        self.id = None  # pylint: disable=invalid-name
+        self.id = None # pylint: disable=invalid-name
 
     def create(self):
         """
-        Creates a Account to the database
+        Creates an Account in the database
         """
         if not self.name:
             raise DataValidationError("Account name is required")
         logger.info("Creating %s", self.name)
-        self.id = None  # id must be none to generate next primary key
+        self.id = None # id must be none to generate next primary key
         db.session.add(self)
         db.session.commit()
 
     def update(self):
         """
-        Updates a Account to the database
+        Updates an Account in the database
         """
         if not self.name:
             raise DataValidationError("Account name is required")
@@ -52,7 +47,7 @@ class PersistentBase:
         db.session.commit()
 
     def delete(self):
-        """Removes a Account from the data store"""
+        """Removes an Account from the data store"""
         logger.info("Deleting %s", self.name)
         db.session.delete(self)
         db.session.commit()
@@ -65,7 +60,7 @@ class PersistentBase:
         # This is where we initialize SQLAlchemy from the Flask app
         db.init_app(app)
         app.app_context().push()
-        db.create_all()  # make our sqlalchemy tables
+        db.create_all() # make our sqlalchemy tables
 
     @classmethod
     def all(cls):
@@ -75,19 +70,17 @@ class PersistentBase:
 
     @classmethod
     def find(cls, by_id):
-        """Finds a record by it's ID"""
+        """Finds a record by its ID"""
         logger.info("Processing lookup for id %s ...", by_id)
         return cls.query.get(by_id)
 
-
 ######################################################################
-#  A C C O U N T   M O D E L
+# A C C O U N T M O D E L
 ######################################################################
 class Account(db.Model, PersistentBase):
     """
     Class that represents an Account
     """
-
     app = None
 
     # Table Schema
@@ -95,14 +88,14 @@ class Account(db.Model, PersistentBase):
     name = db.Column(db.String(64))
     email = db.Column(db.String(64))
     address = db.Column(db.String(256))
-    phone_number = db.Column(db.String(32), nullable=True)  # phone number is optional
+    phone_number = db.Column(db.String(32), nullable=True) # phone number is optional
     date_joined = db.Column(db.Date(), nullable=False, default=date.today())
 
     def __repr__(self):
         return f"<Account {self.name} id=[{self.id}]>"
 
     def serialize(self):
-        """Serializes a Account into a dictionary"""
+        """Serializes an Account into a dictionary"""
         return {
             "id": self.id,
             "name": self.name,
@@ -114,8 +107,7 @@ class Account(db.Model, PersistentBase):
 
     def deserialize(self, data):
         """
-        Deserializes a Account from a dictionary
-
+        Deserializes an Account from a dictionary
         Args:
             data (dict): A dictionary containing the resource data
         """
@@ -140,8 +132,8 @@ class Account(db.Model, PersistentBase):
 
     @classmethod
     def find_by_name(cls, name):
-        """Returns all Accounts with the given name
-
+        """
+        Returns all Accounts with the given name
         Args:
             name (string): the name of the Accounts you want to match
         """
