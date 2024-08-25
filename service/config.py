@@ -7,6 +7,9 @@ import os
 # Get configuration from environment
 DATABASE_URI = os.getenv("DATABASE_URI")
 
+# Get the database URI from the environment variable, or use a default SQLite database
+DATABASE_URI = os.getenv("DATABASE_URI", "sqlite:///accounts.db")
+
 # Build DATABASE_URI from environment if not found
 if not DATABASE_URI:
     DATABASE_USER = os.getenv("DATABASE_USER", "postgres")
